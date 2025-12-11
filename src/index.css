@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 전체화면 설정 및 스크롤 제거 */
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* 스크롤바 제거 */
+  background-color: #0f172a; /* 다크 배경 */
+  color: white;
+}
+
+.leaflet-container {
+  width: 100vw;
+  height: 100vh;
+  background: #1a1a1a;
+  z-index: 0;
+}
+
+/* 유리 효과 (Glassmorphism) 패널 */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.75); /* 반투명 검정 */
+  backdrop-filter: blur(12px); /* 뒤가 흐릿하게 비침 */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* 스크롤바 커스텀 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
