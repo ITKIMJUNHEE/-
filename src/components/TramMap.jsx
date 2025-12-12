@@ -1,12 +1,34 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
-const TramMap = ({ simulationResult, busStops = [] }) => {
-  const stations = simulationResult?.stations || [];
+const TramMap = ({ simulationResult, busStops = [], weather = { type: 'sunny', intensity: 0 } }) => {
+  
+  // 1. 날씨에 따라 정류장 혼잡도 실시간 계산 (Visual Feedback)
+  const stations = useMemo(() => {
+    const rawStations = simulationResult?.stations || [];
+    
+    return rawStations.map(st => {
+      let multiplier = 1.0;
+      
+      if (weather.type === 'rain') {
+        // 비: 최대 1.3배 혼잡 증가
+        multiplier = 1.0 + (weather.intensity / 100) * 0.3;
+      } else if (weather.type === 'snow') {
+        // 눈: 최대 1.8배 혼잡 증가 (교통 마비 시각화)
+        multiplier = 1.0 + (weather.intensity / 100) * 0.8;
+      }
+
+      return {
+        ...st,
+        congestion: Math.round(st.congestion * multiplier)
+      };
+    });
+  }, [simulationResult, weather]);
   
   const centerPos = [36.3504, 127.3845];
 
+  // 노선 그리기 (기존 동일)
   const getPathCoords = (idList) => {
     if (!stations || stations.length === 0) return [];
     return idList.map(id => {
@@ -15,26 +37,14 @@ const TramMap = ({ simulationResult, busStops = [] }) => {
     }).filter(coord => coord !== null);
   };
 
-  // 1. 메인 순환선 (201 ~ 240 ~ 201)
-  const mainLoopIds = [];
-  for (let i = 201; i <= 240; i++) mainLoopIds.push(i);
-  mainLoopIds.push(201);
-
-  // 2. 연축 지선 (212 -> 241 -> 244)
+  const mainLoopIds = []; for (let i = 201; i <= 240; i++) mainLoopIds.push(i); mainLoopIds.push(201);
   const yeonchukBranchIds = [212, 241, 242, 243, 244];
-
-  // 3. 진잠 지선 (233 -> 245)
-  // 233번(관저4)을 중심으로 왼쪽으로 245(진잠) 연결
   const jinjamBranchIds = [233, 245];
 
-  const mainLoopPath = getPathCoords(mainLoopIds);
-  const yeonchukPath = getPathCoords(yeonchukBranchIds);
-  const jinjamPath = getPathCoords(jinjamBranchIds);
-
   const getStatusColor = (congestion) => {
-    if (congestion >= 120) return "#dc2626"; 
-    if (congestion >= 80) return "#ea580c"; 
-    return "#10b981"; 
+    if (congestion >= 120) return "#dc2626"; // 빨강 (매우 혼잡)
+    if (congestion >= 80) return "#ea580c";  // 주황 (혼잡)
+    return "#10b981"; // 초록 (원활)
   };
 
   return (
@@ -60,27 +70,10 @@ const TramMap = ({ simulationResult, busStops = [] }) => {
           />
         ))}
 
-        {/* 트램 노선 (빨간색) */}
-        {mainLoopPath.length > 0 && (
-          <Polyline 
-            positions={mainLoopPath} 
-            pathOptions={{ color: '#ef4444', weight: 6, opacity: 0.8 }} 
-          />
-        )}
-        
-        {yeonchukPath.length > 0 && (
-          <Polyline 
-            positions={yeonchukPath} 
-            pathOptions={{ color: '#ef4444', weight: 6, opacity: 0.8 }} 
-          />
-        )}
-
-        {jinjamPath.length > 0 && (
-          <Polyline 
-            positions={jinjamPath} 
-            pathOptions={{ color: '#ef4444', weight: 6, opacity: 0.8 }} 
-          />
-        )}
+        {/* 트램 노선 */}
+        {getPathCoords(mainLoopIds).length > 0 && <Polyline positions={getPathCoords(mainLoopIds)} pathOptions={{ color: '#ef4444', weight: 6, opacity: 0.8 }} />}
+        {getPathCoords(yeonchukBranchIds).length > 0 && <Polyline positions={getPathCoords(yeonchukBranchIds)} pathOptions={{ color: '#ef4444', weight: 6, opacity: 0.8 }} />}
+        {getPathCoords(jinjamBranchIds).length > 0 && <Polyline positions={getPathCoords(jinjamBranchIds)} pathOptions={{ color: '#ef4444', weight: 6, opacity: 0.8 }} />}
 
         {/* 정거장 마커 */}
         {stations.map((st) => (
@@ -101,8 +94,14 @@ const TramMap = ({ simulationResult, busStops = [] }) => {
                   {st.name} <span className="text-xs text-gray-400">({st.id})</span>
                 </h3>
                 <div className="text-sm space-y-1 text-gray-700">
-                  <p>혼잡도: <span className="font-bold">{st.congestion}%</span></p>
+                  <p>혼잡도: <span className="font-bold" style={{color: getStatusColor(st.congestion)}}>{st.congestion}%</span></p>
                   <p>예상 승객: {st.passengers}명</p>
+                  {/* 날씨 경고 메시지 */}
+                  {weather.type !== 'sunny' && (
+                     <p className="text-xs text-red-500 mt-1 font-bold animate-pulse">
+                       ⚠️ 기상 지연 발생
+                     </p>
+                  )}
                 </div>
               </div>
             </Popup>
