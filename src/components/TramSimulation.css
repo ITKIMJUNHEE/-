@@ -1,118 +1,50 @@
-/* =========================================
-   기본 레이아웃 및 폰트 (기존 유지)
-   ========================================= */
-.tram-simulation-container {
-  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999;
-  overflow-y: auto; overflow-x: hidden;
-  background: #f4f6fb; padding: 24px; box-sizing: border-box;
-  font-family: "Pretendard", -apple-system, sans-serif; color: #111827;
-  display: flex; flex-direction: column;
-}
+.tram-simulation-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; overflow-y: auto; overflow-x: hidden; background: #f4f6fb; padding: 24px; box-sizing: border-box; font-family: "Pretendard", -apple-system, sans-serif; font-size: 16px; color: #111827; display: flex; flex-direction: column; }
 .tram-simulation-container * { box-sizing: border-box; }
-
-.back-btn, .save-btn {
-  display: flex; align-items: center; gap: 8px; padding: 10px 18px;
-  border-radius: 8px; border: 1px solid #d1d5db; background: white; 
-  font-weight: 700; font-size: 15px; cursor: pointer; color: #1f2937; transition: 0.2s;
-}
+.back-btn, .save-btn { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; border: 1px solid #d1d5db; background: white; font-weight: 700; font-size: 15px; cursor: pointer; color: #374151; transition: 0.2s; width: fit-content; }
 .back-btn:hover, .save-btn:hover { background: #f3f4f6; }
-
-.tram-layout {
-  display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 24px; width: 100%; margin-bottom: 80px;
-}
+.tram-layout { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 24px; width: 100%; margin-bottom: 80px; }
 @media (max-width: 900px) { .tram-layout { grid-template-columns: 1fr; } }
-
-.tram-card {
-  background: #ffffff; border-radius: 16px; padding: 28px; 
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); height: fit-content; 
-}
+.tram-card { background: #ffffff; border-radius: 16px; padding: 28px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); height: fit-content; }
 .card-header-row { display: flex; justify-content: space-between; align-items: start; margin-bottom: 24px; }
 .card-title { font-size: 22px; font-weight: 800; color: #111827; margin-bottom: 8px; }
 .card-subtitle { font-size: 15px; color: #4b5563; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #f3f4f6; }
-
-/* =========================================
-   ⭐ [NEW] 날씨 패널 디자인 ⭐
-   ========================================= */
-.weather-section {
-  background: #f0f9ff; /* 맑은 하늘색 배경 */
-  border: 1px solid #bae6fd;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 24px;
-}
-.weather-buttons {
-  display: flex; gap: 8px; margin-top: 10px;
-}
-.weather-btn {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  padding: 12px; border-radius: 10px; border: 2px solid #e5e7eb; background: white;
-  cursor: pointer; font-weight: 700; font-size: 14px; color: #6b7280; transition: 0.2s;
-}
-.weather-btn:hover { background: #f9fafb; }
-/* 활성화된 버튼 색상 */
-.weather-btn.active {
-  border-color: #3b82f6; background: #eff6ff; color: #2563eb;
-}
-
+.weather-section { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+.weather-buttons { display: flex; gap: 8px; margin-top: 10px; }
+.weather-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 12px; border-radius: 10px; border: 2px solid #e5e7eb; background: white; cursor: pointer; font-weight: 700; font-size: 14px; color: #6b7280; transition: 0.2s; }
+.weather-btn:hover { background: #f9fafb; } .weather-btn.active { border-color: #3b82f6; background: #eff6ff; color: #2563eb; }
 .weather-intensity { margin-top: 16px; padding-top: 12px; border-top: 1px solid #bfdbfe; }
-.intensity-labels {
-  display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-top: 4px;
-}
-.weather-delay-msg {
-  margin-top: 8px; font-size: 13px; color: #ea580c; font-weight: 700;
-  background: #fff7ed; padding: 6px; border-radius: 6px; text-align: center;
-}
-
+.weather-delay-msg { margin-top: 8px; font-size: 13px; color: #ea580c; font-weight: 700; background: #fff7ed; padding: 6px; border-radius: 6px; text-align: center; }
 .divider { height: 1px; background: #e5e7eb; margin: 24px 0; }
-
-/* =========================================
-   입력 폼 & 결과 박스 (기존 디자인 유지)
-   ========================================= */
 .form-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
 .label-line { display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; color: #1f2937; margin-bottom: 6px; }
 .input-inline { display: flex; gap: 12px; align-items: center; }
-.input-inline input[type="number"], .input-inline select {
-  padding: 12px 14px; border-radius: 8px; border: 2px solid #d1d5db; width: 100%;
-  font-size: 16px; font-weight: 700; color: #000 !important; background: #fff !important;
-}
+.input-inline input[type="number"], .input-inline select { padding: 12px 14px; border-radius: 8px; border: 2px solid #d1d5db; width: 100%; font-size: 16px; font-weight: 700; color: #000 !important; background: #fff !important; }
 .input-inline input[type="range"] { width: 100%; cursor: pointer; accent-color: #2563eb; height: 8px; }
 .badge { display: inline-block; padding: 6px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; background: #e5e7eb; color: #374151; }
-
+.unit-label { font-size: 14px; font-weight: 600; color: #64748b; white-space: nowrap; }
 .results-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
-.result-box {
-  border-radius: 12px; padding: 22px; background: #f8fafc; border: 1px solid #e2e8f0;
-  display: flex; flex-direction: column; justify-content: center;
-}
+.result-box { border-radius: 12px; padding: 22px; background: #f8fafc; border: 1px solid #e2e8f0; display: flex; flex-direction: column; justify-content: center; }
 .result-title { font-size: 14px; font-weight: 700; color: #4b5563; text-transform: uppercase; margin-bottom: 10px; }
 .result-value { font-size: 24px; font-weight: 900; color: #000; line-height: 1.2; }
 .result-sub { font-size: 14px; color: #4b5563; margin-top: 6px; font-weight: 500; }
 .pill-row { display: flex; gap: 8px; margin-top: 14px; }
 .pill { padding: 6px 12px; border-radius: 99px; font-size: 13px; font-weight: 700; }
-.tag-success { background: #dcfce7; color: #14532d; } .tag-warning { background: #ffedd5; color: #7c2d12; }
-.tag-danger { background: #fee2e2; color: #7f1d1d; } .tag-info { background: #e0f2fe; color: #0c4a6e; }
-
+.tag-success { background: #dcfce7; color: #14532d; } .tag-warning { background: #ffedd5; color: #7c2d12; } .tag-danger { background: #fee2e2; color: #7f1d1d; } .tag-info { background: #e0f2fe; color: #0c4a6e; }
 .traffic-bar-wrapper { margin-top: 12px; height: 10px; background: #e5e7eb; border-radius: 5px; overflow: hidden; }
 .traffic-bar-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #ef4444); }
-
 .strategy-box { grid-column: span 2; }
-.strategy-box.danger { border: 2px solid #fca5a5; background: #fef2f2; }
-.strategy-box.positive { border: 2px solid #86efac; background: #f0fdf4; }
-.strategy-box.neutral { border: 2px solid #e5e7eb; background: #fff; }
-.strategy-box.negative { border: 2px solid #fdba74; background: #fff7ed; }
-.eco-tag { margin-top: 16px; padding-top: 12px; border-top: 2px dashed #e5e7eb; font-size: 14px; color: #047857; font-weight: 600; }
-
-.section-title {
-  font-size: 18px; font-weight: 800; color: #111827; margin-top: 30px; margin-bottom: 16px; 
-  border-left: 5px solid #2563eb; padding-left: 12px; display: flex; align-items: center; gap: 8px;
-}
+.strategy-box.danger { border: 2px solid #fca5a5; background: #fef2f2; } .strategy-box.positive { border: 2px solid #86efac; background: #f0fdf4; } .strategy-box.neutral { border: 2px solid #e5e7eb; background: #fff; } .strategy-box.negative { border: 2px solid #fdba74; background: #fff7ed; }
+.env-stats { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.env-item { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #166534; }
+.section-title { font-size: 18px; font-weight: 800; color: #111827; margin-top: 30px; margin-bottom: 16px; border-left: 5px solid #2563eb; padding-left: 12px; }
+.mini-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .mini-table th { padding: 12px; background: #f1f5f9; color: #334155; font-size: 14px; font-weight: 700; text-align: left; }
 .mini-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-size: 15px; }
 .mini-table td:nth-child(2) { font-weight: 700; font-size: 16px; text-align: right; }
 .mini-table td:nth-child(3) { text-align: right; color: #6b7280; }
-
 .history-section { border-top: 2px solid #e5e7eb; padding-top: 24px; margin-top: 24px; }
 .scenario-list { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px; }
 .scenario-card { min-width: 160px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 16px; flex-shrink: 0; }
 .sc-header { font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 8px; display: flex; justify-content: space-between; }
-.sc-badge.weather { background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; }
+.sc-badge { background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
 .sc-result { font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 8px; padding-top: 8px; border-top: 1px solid #cbd5e1; }

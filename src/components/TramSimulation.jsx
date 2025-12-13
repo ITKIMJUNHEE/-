@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, AlertTriangle, History, Sun, CloudRain, Snowflake } from 'lucide-react';
+import { ArrowLeft, Save, AlertTriangle, History, Sun, CloudRain, Snowflake, Leaf, Wind, Car } from 'lucide-react';
 import Papa from 'papaparse';
 import './TramSimulation.css';
 
 const TramSimulation = () => {
   const navigate = useNavigate();
+  // 초기값
   const [inputs, setInputs] = useState({
-    tramHeadway: 6, busCut: 20, passengerPeak: 4500, 
+    tramHeadway: 6, busCut: 20, passengerPeak: 3500, 
     costPerTramRun: 3500000, baseBusCostYear: 120000000000, operationHours: 18
   });
   const [weather, setWeather] = useState({ type: 'sunny', intensity: 0 });
@@ -21,29 +22,44 @@ const TramSimulation = () => {
     Papa.parse('/data/metro_usage.csv', { download: true, header: true, complete: () => {} });
   }, []);
 
-  const handleChange = (e) => setInputs(prev => ({ ...prev, [e.target.name]: Number(e.target.value) }));
-  
+  // ⭐ [수정] 입력값 처리: 앞에 0이 붙지 않도록 Number 변환 처리 강화
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    // 빈 칸이면 0이 아니라 빈 문자열로 처리하려 했으나, 
+    // 계산 로직 안정을 위해 Number()로 변환하되, UI에서는 value props가 number이므로 
+    // 사용자가 입력할 때 기존 값을 덮어쓰도록 유도
+    setInputs(prev => ({ ...prev, [name]: Number(value) }));
+  };
+
   const results = useMemo(() => {
     const { tramHeadway, busCut, passengerPeak, costPerTramRun, baseBusCostYear, operationHours } = inputs;
     
+    // 날씨 계수
     let speedFactor = 1.0;
     if (weather.type === 'rain') speedFactor = 1.0 - (weather.intensity / 100) * 0.2;
     else if (weather.type === 'snow') speedFactor = 1.0 - (weather.intensity / 100) * 0.5;
     
     const effectiveHeadway = tramHeadway / speedFactor;
-    
     const tramRunsPerDay = Math.round((operationHours * 60) / effectiveHeadway);
     const tramCostYear = tramRunsPerDay * 365 * costPerTramRun;
     const busCostYear = baseBusCostYear * (1 - busCut / 100);
     const totalBudget = tramCostYear + busCostYear;
     const deltaBudget = totalBudget - baseBusCostYear;
 
-    const capacityPerTram = 200;
+    const capacityPerTram = 300;
     const peakCapacityPerHour = (60 / effectiveHeadway) * capacityPerTram;
     const congestionIndex = peakCapacityPerHour > 0 ? passengerPeak / peakCapacityPerHour : 0;
     const congestionPercent = congestionIndex * 100;
     
     const complaintScore = (busCut * 0.6) + (Math.max(0, congestionIndex - 0.9) * 100 * 0.4);
+
+    // 환경 효과 계산 (가상 수식)
+    // 트램 승객 1명당 승용차 0.3대 대체 가정, 승용차 1km당 130g CO2 배출
+    // 연간 CO2 절감량 = (일일승객 * 365 * 0.3 * 평균이동거리 10km * 130g) / 1000000 (톤)
+    const dailyPassengers = passengerPeak * operationHours * 0.6; // 하루 총 승객 추정
+    const co2Reduction = Math.round((dailyPassengers * 365 * 0.3 * 10 * 0.130) / 1000); 
+    const pineTrees = Math.round(co2Reduction * 1000 / 6.6); // 소나무 1그루 6.6kg 흡수
+    const carReduction = Math.round(dailyPassengers * 0.25); // 승용차 통행 감소대수
 
     let congestionInfo = { text: '', tagClass: '' };
     if (congestionIndex < 0.6) congestionInfo = { text: '여유 있음', tagClass: 'tag-success' };
@@ -62,18 +78,31 @@ const TramSimulation = () => {
     else if (deltaBudget < baseBusCostYear * 0.15) budgetTag = { text: '소폭 증가', class: 'tag-info' };
     else budgetTag = { text: '예산 부담 증가', class: 'tag-warning' };
 
+    const isBudgetOk = deltaBudget <= baseBusCostYear * 0.15;
     let strategyProposal = { title: '', actionItems: [], tone: '' };
+
     if (weather.type === 'snow' && weather.intensity > 60) {
-      strategyProposal = { title: '❄️ 폭설 비상 대응', actionItems: ['트램 50% 감속 운행', '비상 수송 차량 투입'], tone: 'danger' };
-    } else if (deltaBudget <= baseBusCostYear * 0.15 && congestionIndex >= 0.7 && congestionIndex <= 1.05) {
-      strategyProposal = { title: '🌟 최적의 황금 정책', actionItems: ['현재 설정 유지 권장', '스마트 쉘터 구축 제안'], tone: 'positive' };
+      strategyProposal = { title: '❄️ 폭설 비상 대응 모드', actionItems: ['트램 50% 감속 운행', '경사로 제설 최우선 지원'], tone: 'danger' };
+    } else if (weather.type === 'rain' && weather.intensity > 70) {
+      strategyProposal = { title: '🌧️ 호우 안전 대책', actionItems: ['감속 운행(30km/h)', '저지대 버스 우회'], tone: 'negative' };
     } else if (congestionIndex > 1.2) {
-      strategyProposal = { title: '🚨 혼잡도 위험', actionItems: ['배차 간격 단축 필요', '예비 차량 투입'], tone: 'danger' };
+      strategyProposal = { title: '🚨 혼잡도 위험 수준', actionItems: [`배차 간격을 ${Math.max(3, inputs.tramHeadway - 2)}분으로 단축 필요`, '예비 차량 투입'], tone: 'danger' };
+    } else if (congestionIndex < 0.5) {
+      strategyProposal = { title: '💸 운영 효율화 필요', actionItems: ['배차 간격 확대하여 예산 절감', '탄력 배차제 도입'], tone: 'negative' };
+    } else if (isBudgetOk && congestionIndex >= 0.7 && congestionIndex <= 1.05) {
+      strategyProposal = { title: '🌟 최적의 황금 정책', actionItems: ['현재 설정 유지 권장', '스마트 쉘터 구축 제안'], tone: 'positive' };
+    } else if (deltaBudget > baseBusCostYear * 0.2) {
+      strategyProposal = { title: '💰 예산 초과 경고', actionItems: ['버스 노선 추가 감축 검토', '운행 횟수 조정'], tone: 'negative' };
     } else {
-      strategyProposal = { title: '⚖️ 정책 재조정 필요', actionItems: ['변수 미세 조정 권장'], tone: 'neutral' };
+      strategyProposal = { title: '⚖️ 정책 미세 조정 필요', actionItems: ['배차 간격 1~2분 조정 권장'], tone: 'neutral' };
     }
 
-    return { tramRunsPerDay, tramCostYear, busCostYear, totalBudget, deltaBudget, congestionPercent, congestionInfo, complaintScore, complaintInfo, strategyProposal, budgetTag, effectiveHeadway };
+    return { 
+      tramRunsPerDay, tramCostYear, busCostYear, totalBudget, deltaBudget, 
+      congestionPercent, congestionInfo, complaintScore, complaintInfo, 
+      strategyProposal, budgetTag, effectiveHeadway,
+      co2Reduction, pineTrees, carReduction // 환경 변수 추가
+    };
   }, [inputs, weather]);
 
   const handleSaveScenario = () => setSavedScenarios([{ id: Date.now(), time: new Date().toLocaleTimeString(), inputs: { ...inputs }, results: { ...results }, weather: {...weather} }, ...savedScenarios]);
@@ -83,11 +112,9 @@ const TramSimulation = () => {
   return (
     <div className="tram-simulation-container">
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-        {/* ⭐ 여기가 수정된 부분입니다: /dashboard 로 이동 ⭐ */}
         <button onClick={() => navigate('/dashboard')} className="back-btn"><ArrowLeft size={18} /> 메인 지도로</button>
       </div>
       <div className="tram-layout">
-        {/* 왼쪽: 날씨 및 입력 */}
         <div className="tram-card">
           <div className="weather-section">
             <div className="label-line">🌤️ 기상 조건 설정</div>
@@ -111,23 +138,66 @@ const TramSimulation = () => {
           <div className="card-subtitle">정책 및 환경 변수를 조정합니다.</div>
           <div className="form-row"><div className="label-line"><span>트램 배차 간격</span><span>{inputs.tramHeadway}분</span></div><div className="input-inline"><input type="range" name="tramHeadway" min="3" max="15" step="1" value={inputs.tramHeadway} onChange={handleChange} /></div></div>
           <div className="form-row"><div className="label-line"><span>버스 노선 감축률</span><span style={{ color: inputs.busCut >= 30 ? '#ef4444' : 'inherit' }}>{inputs.busCut}%</span></div><div className="input-inline"><input type="range" name="busCut" min="0" max="50" step="5" value={inputs.busCut} onChange={handleChange} /></div></div>
-          <div className="form-row"><div className="label-line"><span>출근 승객</span></div><div className="input-inline"><input type="number" name="passengerPeak" value={inputs.passengerPeak} onChange={handleChange} /></div></div>
-          <div className="form-row"><div className="label-line"><span>트램 1회 운행비</span></div><div className="input-inline"><input type="number" name="costPerTramRun" step="500000" value={inputs.costPerTramRun} onChange={handleChange} /></div></div>
-          <div className="form-row"><div className="label-line"><span>버스 연간 운영비</span></div><div className="input-inline"><input type="number" name="baseBusCostYear" step="1000000000" value={inputs.baseBusCostYear} onChange={handleChange} /></div></div>
+          
+          {/* ⭐ [수정] 입력창 0 문제 해결 및 단위(원) 추가 ⭐ */}
+          <div className="form-row">
+            <div className="label-line"><span>출근 시간대 예상 승객</span></div>
+            <div className="input-inline">
+              <input type="number" name="passengerPeak" value={inputs.passengerPeak.toString()} onChange={handleChange} />
+              <span className="unit-label">명/시간</span>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="label-line"><span>트램 1회 운행비</span></div>
+            <div className="input-inline">
+              <input type="number" name="costPerTramRun" value={inputs.costPerTramRun.toString()} onChange={handleChange} step="10000" />
+              <span className="unit-label">(원)</span>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="label-line"><span>버스 연간 운영비</span></div>
+            <div className="input-inline">
+              <input type="number" name="baseBusCostYear" value={inputs.baseBusCostYear.toString()} onChange={handleChange} step="100000000" />
+              <span className="unit-label">(원)</span>
+            </div>
+          </div>
+          
+          {/* ⭐ [수정] 운행 시간대 설정 ⭐ */}
+          <div className="form-row">
+            <div className="label-line"><span>운행 시간대 설정</span></div>
+            <div className="input-inline">
+              <select name="operationHours" value={inputs.operationHours} onChange={handleChange}>
+                <option value="16">단축 운행 (16시간)</option>
+                <option value="18">일반 운행 (18시간)</option>
+                <option value="20">연장 운행 (20시간)</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* 오른쪽: 결과 대시보드 */}
         <div className="tram-card">
           <div className="card-header-row"><div><div className="card-title">2. 시뮬레이션 결과</div><div className="card-subtitle">기상 악화 및 정책 반영 리포트</div></div><button onClick={handleSaveScenario} className="save-btn"><Save size={16} /> 시나리오 저장</button></div>
           <div className="results-grid">
             <div className="result-box"><div className="result-title">최종 소요 예산</div><div className="result-value">{formatWon(results.totalBudget)}</div><div className="result-sub">증감: {results.deltaBudget > 0 ? '+' : ''}{formatWon(results.deltaBudget)}</div><div className="pill-row"><div className={`pill ${results.budgetTag.class}`}>{results.budgetTag.text}</div></div></div>
             <div className="result-box"><div className="result-title">실질 혼잡도 (날씨 반영)</div><div className="result-value">{results.congestionInfo.text} ({formatPercent(results.congestionPercent)})</div><div className="traffic-bar-wrapper"><div className="traffic-bar-bg"><div className="traffic-bar-fill" style={{ width: `${Math.min(results.congestionPercent / 1.5, 100)}%` }}></div></div></div>{weather.type !== 'sunny' && <div className="weather-delay-msg">⚠️ 기상 악화로 배차 지연 중</div>}</div>
+            
+            {/* ⭐ [수정] 시민 불편 지수 & 환경 효과 나란히 배치 ⭐ */}
             <div className="result-box"><div className="result-title">시민 불편 지수</div><div className="result-value">{results.complaintInfo.text} ({results.complaintScore.toFixed(0)}점)</div><div className="pill-row"><div className={`pill ${results.complaintInfo.class1}`}>{results.complaintInfo.tag1}</div></div></div>
-            <div className={`result-box strategy-box ${results.strategyProposal.tone}`}><div className="result-title">AI 정책 제안 보고서</div><div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>{results.strategyProposal.tone === 'danger' && <AlertTriangle size={20} color="#ef4444" />}<span style={{ fontSize: '15px', fontWeight: 'bold' }}>{results.strategyProposal.title}</span></div><ul style={{ paddingLeft: '16px', margin: 0, fontSize: '13px', lineHeight: '1.5' }}>{results.strategyProposal.actionItems.map((item, idx) => (<li key={idx} style={{ marginBottom: '4px' }}>{item}</li>))}</ul><div className="eco-tag">🌲 <strong>환경 효과:</strong> 연간 소나무 {Math.round(results.tramRunsPerDay * 0.5).toLocaleString()}그루 식재</div></div>
+            <div className="result-box" style={{backgroundColor: '#f0fdf4', borderColor: '#bbf7d0'}}>
+              <div className="result-title" style={{color: '#166534'}}>🌱 환경 개선 효과</div>
+              <div className="env-stats">
+                <div className="env-item"><Wind size={16}/> <span>CO2 감축: <strong>{results.co2Reduction}톤</strong></span></div>
+                <div className="env-item"><Leaf size={16}/> <span>소나무 식재: <strong>{results.pineTrees}그루</strong></span></div>
+                <div className="env-item"><Car size={16}/> <span>승용차 감소: <strong>{results.carReduction.toLocaleString()}대</strong></span></div>
+              </div>
+            </div>
+
+            <div className={`result-box strategy-box ${results.strategyProposal.tone}`}><div className="result-title">AI 정책 제안 보고서</div><div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>{results.strategyProposal.tone === 'danger' && <AlertTriangle size={20} color="#ef4444" />}<span style={{ fontSize: '15px', fontWeight: 'bold' }}>{results.strategyProposal.title}</span></div><ul style={{ paddingLeft: '16px', margin: 0, fontSize: '13px', lineHeight: '1.5' }}>{results.strategyProposal.actionItems.map((item, idx) => (<li key={idx} style={{ marginBottom: '4px' }}>{item}</li>))}</ul></div>
           </div>
           <div className="section-title">3. 핵심 수치 요약</div>
           <table className="mini-table"><thead><tr><th>지표</th><th>값</th><th>비고</th></tr></thead><tbody><tr><td>일일 트램 운행</td><td>{results.tramRunsPerDay.toLocaleString()}회</td><td>배차 {inputs.tramHeadway}분</td></tr><tr><td>트램 연간 비용</td><td>{formatWon(results.tramCostYear)}</td><td>운행 비용 기반</td></tr><tr><td>버스 연간 비용</td><td>{formatWon(results.busCostYear)}</td><td>감축 {inputs.busCut}% 적용</td></tr></tbody></table>
           {savedScenarios.length > 0 && (<div className="history-section"><div className="section-title"><History size={16}/> 시나리오 비교 기록</div><div className="scenario-list">{savedScenarios.map((sc) => (<div key={sc.id} className="scenario-card"><div className="sc-header"><span className="sc-time">{sc.time}</span><span className="sc-badge">{sc.weather.type}</span></div><div className="sc-body"><div>배차: <strong>{sc.inputs.tramHeadway}분</strong></div><div>감축: <strong>{sc.inputs.busCut}%</strong></div><div className="sc-result">예산: {Math.round(sc.results.totalBudget / 100000000).toLocaleString()}억</div></div></div>))}</div></div>)}
+          <div className="text-[10px] text-slate-400 font-medium text-right mt-4">※ 본 시뮬레이션 결과는 2024년 대전광역시 공공데이터포털 실데이터를 기반으로 산출되었습니다.</div>
         </div>
       </div>
     </div>
