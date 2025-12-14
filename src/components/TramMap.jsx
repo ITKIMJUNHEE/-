@@ -1,67 +1,132 @@
 import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Tooltip } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
-const TramMap = ({ simulationResult, busStops = [], weather = { type: 'sunny', intensity: 0 } }) => {
+const markerStyle = `
+  .ai-marker {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    border: 3px solid #3b82f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.5s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  }
+  .ai-marker-inner { width: 6px; height: 6px; background-color: #3b82f6; border-radius: 50%; }
   
-  // 날씨에 따른 정류장 혼잡도 시각화
-  const stations = useMemo(() => {
-    const rawStations = simulationResult?.stations || [];
-    return rawStations.map(st => {
-      let multiplier = 1.0;
-      if (weather.type === 'rain') multiplier = 1.0 + (weather.intensity / 100) * 0.3;
-      else if (weather.type === 'snow') multiplier = 1.0 + (weather.intensity / 100) * 0.8;
-      return { ...st, congestion: Math.round(st.congestion * multiplier) };
+  .status-normal { border-color: #3b82f6; } 
+  .status-warning { border-color: #f59e0b; .ai-marker-inner { background-color: #f59e0b; } }
+
+  .status-danger { 
+    background-color: #fee2e2;
+    border-color: #ef4444; 
+    animation: shockwave 1.5s infinite;
+  }
+  .status-danger .ai-marker-inner { background-color: #ef4444; }
+
+  @keyframes shockwave {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { transform: scale(1.2); box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  }
+`;
+
+const TramMap = ({ stations = [], accidents = [], complaints = [], onMarkerClick }) => {
+  
+  // ⭐ [위치/줌 황금비율] 11.4로 설정하면 위아래 패널이 있어도 노선 전체가 딱 예쁘게 보입니다.
+  const centerPos = [36.3504, 127.3845]; 
+
+  const mapData = useMemo(() => {
+    if (!stations || stations.length === 0) return { mainLoop: [], yeonchuk: [], jinjam: [] };
+    const findSt = (id) => stations.find(s => s.id === id);
+    const getCoords = (ids) => ids.map(id => {
+        const s = findSt(id);
+        return s ? [s.lat, s.lon] : null;
+    }).filter(c => c !== null);
+
+    const mainLoopIds = Array.from({length: 40}, (_, i) => 201 + i).concat([201]);
+    const yeonchukIds = [212, 241, 242, 243, 244];
+    const jinjamIds = [233, 245];
+
+    return {
+        mainLoop: getCoords(mainLoopIds),
+        yeonchuk: getCoords(yeonchukIds),
+        jinjam: getCoords(jinjamIds)
+    };
+  }, [stations]);
+
+  const accidentPaths = useMemo(() => {
+    if (!accidents || accidents.length === 0 || !stations.length) return []; 
+    return accidents.map(acc => {
+      const stIndex = stations.findIndex(s => s.id === acc.stationId);
+      if (stIndex === -1) return null;
+      const nextSt = stations[(stIndex + 1) % stations.length]; 
+      const currentSt = stations[stIndex];
+      if (!currentSt || !nextSt) return null;
+      return [[currentSt.lat, currentSt.lon], [nextSt.lat, nextSt.lon]];
+    }).filter(p => p !== null);
+  }, [accidents, stations]);
+
+  const getMarkerIcon = (stationId) => {
+    const isAccident = accidents.find(a => a.stationId === stationId);
+    const isComplaint = complaints.find(c => c.stationId === stationId && c.status !== 'done');
+
+    let className = 'ai-marker status-normal';
+    let size = [16, 16];
+
+    if (isAccident) {
+        className = 'ai-marker status-danger'; 
+        size = [24, 24]; 
+    } else if (isComplaint) {
+        className = 'ai-marker status-warning';
+    }
+
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div class="${className}" style="width: 100%; height: 100%; display:flex; align-items:center; justify-content:center;"><div class="ai-marker-inner"></div></div>`,
+      iconSize: size,
+      iconAnchor: [size[0]/2, size[1]/2]
     });
-  }, [simulationResult, weather]);
-  
-  const centerPos = [36.3504, 127.3845];
-
-  const getPathCoords = (idList) => {
-    if (!stations || stations.length === 0) return [];
-    return idList.map(id => {
-      const st = stations.find(s => Number(s.id) === Number(id));
-      return st ? [st.lat, st.lon] : null;
-    }).filter(coord => coord !== null);
   };
 
-  const mainLoopIds = []; for (let i = 201; i <= 240; i++) mainLoopIds.push(i); mainLoopIds.push(201);
-  const yeonchukBranchIds = [212, 241, 242, 243, 244];
-  const jinjamBranchIds = [233, 245];
-
-  const getStatusColor = (congestion) => {
-    if (congestion >= 120) return "#dc2626"; // 빨강
-    if (congestion >= 80) return "#ea580c";  // 주황
-    return "#10b981"; // 초록
-  };
+  // ⭐ 데이터 로딩 전에는 렌더링 하지 않음 (이상한 위치 마커 방지)
+  if (!stations || stations.length === 0) return null;
 
   return (
-    <div className="absolute top-0 left-0 w-full h-full z-0 bg-slate-50">
-      <MapContainer center={centerPos} zoom={12} zoomControl={false} style={{ height: '100vh', width: '100vw' }}>
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution='&copy; 트램 ON' />
+    <div className="w-full h-full bg-slate-50 z-0">
+      <style>{markerStyle}</style>
+      <MapContainer center={centerPos} zoom={11.4} zoomSnap={0.1} zoomControl={false} style={{ height: '100%', width: '100%' }}>
+        <TileLayer 
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" 
+          attribution='&copy; Tram ON' 
+        />
+        <Polyline positions={mapData.mainLoop} pathOptions={{ color: '#2563eb', weight: 5, opacity: 0.6 }} />
+        <Polyline positions={mapData.yeonchuk} pathOptions={{ color: '#2563eb', weight: 5, opacity: 0.6 }} />
+        <Polyline positions={mapData.jinjam} pathOptions={{ color: '#2563eb', weight: 5, opacity: 0.6 }} />
 
-        {/* 버스 정류장 */}
-        {busStops.map((bus) => (
-          <CircleMarker key={`bus-${bus.id}`} center={[bus.lat, bus.lon]} radius={2} pathOptions={{ color: 'transparent', fillColor: '#94a3b8', fillOpacity: 0.4 }} />
+        {accidentPaths.map((path, idx) => (
+          <Polyline key={`acc-${idx}`} positions={path} pathOptions={{ color: '#dc2626', weight: 10, opacity: 0.9, dashArray: '12, 12', lineCap: 'round' }} />
         ))}
 
-        {/* ⭐ [수정] 트램 노선 색상 변경 (Red -> Blue) ⭐ */}
-        {getPathCoords(mainLoopIds).length > 0 && <Polyline positions={getPathCoords(mainLoopIds)} pathOptions={{ color: '#3b82f6', weight: 6, opacity: 0.8 }} />}
-        {getPathCoords(yeonchukBranchIds).length > 0 && <Polyline positions={getPathCoords(yeonchukBranchIds)} pathOptions={{ color: '#3b82f6', weight: 6, opacity: 0.8 }} />}
-        {getPathCoords(jinjamBranchIds).length > 0 && <Polyline positions={getPathCoords(jinjamBranchIds)} pathOptions={{ color: '#3b82f6', weight: 6, opacity: 0.8 }} />}
-
-        {/* 정거장 마커 */}
-        {stations.map((st) => (
-          <CircleMarker key={`tram-${st.id}`} center={[st.lat, st.lon]} radius={st.congestion >= 100 ? 10 : 6} pathOptions={{ fillColor: getStatusColor(st.congestion), color: '#fff', weight: 2, fillOpacity: 1 }}>
-            <Popup className="light-popup">
-              <div className="text-center p-2 min-w-[150px]">
-                <h3 className="font-bold text-lg mb-1 text-gray-900">{st.name} <span className="text-xs text-gray-400">({st.id})</span></h3>
-                <p className="text-sm">혼잡도: <span className="font-bold" style={{color: getStatusColor(st.congestion)}}>{st.congestion}%</span></p>
-                {weather.type !== 'sunny' && <p className="text-xs text-red-500 mt-1 font-bold animate-pulse">⚠️ 기상 지연 발생</p>}
-              </div>
-            </Popup>
-          </CircleMarker>
-        ))}
+        {stations.map((st) => {
+          const isAccident = accidents.find(a => a.stationId === st.id);
+          return (
+            <Marker 
+              key={st.id} 
+              position={[st.lat, st.lon]} 
+              icon={getMarkerIcon(st.id)}
+              eventHandlers={{ click: () => onMarkerClick(st) }}
+            >
+              {isAccident && (
+                <Tooltip permanent direction="top" offset={[0, -20]} className="bg-red-600 text-white font-black border-2 border-white text-lg animate-bounce shadow-xl">
+                  🚨 {isAccident.type}
+                </Tooltip>
+              )}
+            </Marker>
+          );
+        })}
       </MapContainer>
     </div>
   );
