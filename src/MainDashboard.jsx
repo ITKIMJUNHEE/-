@@ -123,21 +123,35 @@ const MainDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // ⭐ 날씨 API & 안전장치 (4도, 흐림)
   useEffect(() => {
     const fetchWeather = async () => {
         try {
             const API_KEY = '9427bb8459b286c21e5da1ee64da5fb'; 
             const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Daejeon&appid=${API_KEY}&units=metric&lang=kr`);
+            
             if (res.ok) {
                 const data = await res.json();
+                console.log("✅ 날씨 API 연결 성공:", data);
                 setRealWeather({
                     temp: Math.round(data.main.temp),
                     desc: data.weather[0].description,
                     icon: data.weather[0].main
                 });
+            } else {
+                throw new Error(`API Error: ${res.status}`);
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.warn("⚠️ 날씨 API 연결 실패 (안전 모드 가동):", e);
+            // 🔥 [수정됨] API가 안 될 때(401 에러 등) 보여줄 안전 값: 4도, 흐림
+            setRealWeather({
+                temp: 4,
+                desc: '흐림',
+                icon: 'Clouds'
+            });
+        }
     };
+    
     fetchWeather(); 
     const weatherTimer = setInterval(fetchWeather, 600000); 
     return () => clearInterval(weatherTimer);
@@ -217,6 +231,7 @@ const MainDashboard = () => {
   const renderWeatherIcon = () => {
     const iconType = realWeather.icon;
     if (iconType === 'Loading') return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-500"></div>;
+    // Clouds, Clear 등 API 값에 따라 아이콘 매칭
     if (iconType.includes('Rain') || iconType.includes('Drizzle')) return <CloudRain size={18} />;
     if (iconType.includes('Snow')) return <Snowflake size={18} />;
     if (iconType.includes('Clouds')) return <Cloud size={18} />;
@@ -226,7 +241,7 @@ const MainDashboard = () => {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-50 font-sans text-slate-800">
       
-      {/* 🚨 긴급 배너 (absolute top-0, 지도 위에 뜸) */}
+      {/* 🚨 긴급 배너 (슬림형) */}
       {accidents.length > 0 && (
         <div className="absolute top-0 left-0 w-full z-[1000] bg-red-600 shadow-xl text-white px-6 py-2 flex items-center justify-between animate-slide-down">
           <div className="flex items-center gap-3">
@@ -240,7 +255,7 @@ const MainDashboard = () => {
         </div>
       )}
 
-      {/* 🗺️ 지도 (가장 밑바닥, 화면 전체) */}
+      {/* 🗺️ 지도 */}
       <div className="absolute top-0 left-0 w-full h-full z-0">
         <TramMap 
             stations={stations} 
@@ -250,7 +265,7 @@ const MainDashboard = () => {
         />
       </div>
 
-      {/* 🏠 헤더 (absolute로 지도 위에 뜸, 배너가 있으면 위치가 밀리도록 수정) */}
+      {/* 🏠 헤더 */}
       <header className={`absolute top-0 left-0 w-full p-6 z-50 flex justify-between items-start pointer-events-none transition-all duration-500 ${accidents.length > 0 ? 'mt-14' : ''}`}>
         <div className="pointer-events-auto flex items-center gap-4">
             <div className="bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-lg border border-slate-200 flex items-center gap-3">
@@ -260,6 +275,7 @@ const MainDashboard = () => {
                     <span className="text-[10px] font-bold text-blue-600 tracking-widest">INTEGRATED CONTROL</span>
                 </div>
             </div>
+            {/* 날씨 정보 */}
             <div className="bg-white/90 backdrop-blur-md px-5 py-3 rounded-2xl shadow-lg border border-slate-200 flex items-center gap-6 text-sm font-bold text-slate-600">
                 <div className="flex items-center gap-2"><Calendar size={16} className="text-slate-400"/> {currentTime.toLocaleDateString()}</div>
                 <div className="flex items-center gap-2 w-24"><Clock size={16} className="text-slate-400"/> {currentTime.toLocaleTimeString()}</div>
@@ -284,7 +300,7 @@ const MainDashboard = () => {
         </div>
       </header>
 
-      {/* 🖥️ [하단 통합 관제 콘솔] (지도 위에 뜸) */}
+      {/* 🖥️ [하단 통합 관제 콘솔] */}
       <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-[98%] h-72 z-40 flex gap-4 pointer-events-none">
         
         {/* 1. 재난 감지 */}
@@ -328,6 +344,7 @@ const MainDashboard = () => {
                     <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold flex items-center gap-1"><Leaf size={10}/> 친환경</span>
                 </div>
             </div>
+            
             <div className="flex-1 p-5 flex gap-4">
                 <div className="grid grid-cols-2 gap-3 w-1/2">
                     <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100 flex flex-col justify-between">
@@ -341,11 +358,13 @@ const MainDashboard = () => {
                             <span className="text-[10px] text-blue-500 font-bold ml-2">Target 19.82</span>
                         </div>
                     </div>
+                    
                     <div className="bg-indigo-50/50 rounded-xl p-3 border border-indigo-100 flex flex-col justify-between">
                         <div className="text-slate-500 text-xs font-bold mb-1 flex items-center gap-1"><Cpu size={12}/> AI 예측 정확도</div>
                         <div className="text-2xl font-black text-slate-900">{aiStats.accuracy}%</div>
                         <div className="text-[10px] text-indigo-500 font-medium mt-1">안전속도 5030 준수 중</div>
                     </div>
+
                     <div className="col-span-2 bg-green-50/50 rounded-xl p-3 border border-green-100 flex items-center justify-between">
                         <div className="flex flex-col">
                             <div className="text-slate-500 text-xs font-bold mb-1 flex items-center gap-1"><Droplets size={12}/> 수소 연료 잔량 (H2)</div>
@@ -354,6 +373,7 @@ const MainDashboard = () => {
                         <Leaf size={24} className="text-green-400 opacity-80"/>
                     </div>
                 </div>
+
                 <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col font-mono shadow-inner">
                     <div className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-2 border-b border-slate-200 pb-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> AI PROCESS LOG
