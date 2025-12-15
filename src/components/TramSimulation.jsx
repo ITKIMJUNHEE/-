@@ -17,11 +17,11 @@ const TramSimulation = () => {
   const [alternativeSuggestion, setAlternativeSuggestion] = useState(null);
   const [tramBaseData, setTramBaseData] = useState([]);
 
-  // ⭐ [수정됨] 초기 기본값: passengerPeak 3500 -> 2500 변경
+  // 초기 기본값
   const [inputs, setInputs] = useState({
     tramHeadway: 6, 
     busCut: 20, 
-    passengerPeak: 2500, // 여기가 수정된 부분입니다!
+    passengerPeak: 2500, 
     costPerTramRun: 3500000, 
     baseBusCostYear: 120000000000, 
     operationHours: 18
@@ -51,6 +51,20 @@ const TramSimulation = () => {
     const { name, value } = e.target;
     setInputs(prev => ({ ...prev, [name]: Number(value) }));
     setAlternativeSuggestion(null);
+  };
+
+  // ⭐ [수정됨] 날씨 변경 핸들러 (비 클릭 시 시연용 값 자동 설정)
+  const handleWeatherChange = (type) => {
+    setWeather({ type, intensity: type === 'sunny' ? 0 : 50 });
+
+    // 🎥 시연 시나리오: 비가 오면 배차 8분, 감축 25%로 자동 세팅
+    if (type === 'rain') {
+        setInputs(prev => ({
+            ...prev,
+            tramHeadway: 8,
+            busCut: 25
+        }));
+    }
   };
 
   // 결과 계산 로직
@@ -93,7 +107,15 @@ const TramSimulation = () => {
     const rawCongestion = (adjustedPassengerLoad / MAX_CAPACITY_REFERENCE) * 100;
     const congestionPercent = Math.min(rawCongestion, 100);
     
-    const complaintScore = (busCut * 0.6) + (Math.max(0, (congestionPercent/100) - 0.9) * 100 * 0.5);
+    // ⭐ [수정됨] 시민 불편 지수 (민원) 로직 고도화 (100점 만점 기준)
+    // 버스 감축(최대 50점) + 혼잡도(최대 50점) 비중으로 합산
+    // 혼잡도가 높으면 불편 지수도 같이 올라가도록 수정함
+    let rawComplaintScore = (busCut * 1.0) + (congestionPercent * 0.5);
+    
+    // 혼잡도가 100%를 넘으면 추가 페널티 부여
+    if (rawCongestion > 100) rawComplaintScore += 10;
+    
+    const complaintScore = Math.min(rawComplaintScore, 100); // 100점 넘지 않게 Cap
 
     const dailyPassengers = passengerPeak * operationHours * 0.6;
     const co2Reduction = Math.round((dailyPassengers * 365 * 0.3 * 10 * 0.130) / 1000); 
@@ -106,10 +128,11 @@ const TramSimulation = () => {
     else if (congestionPercent < 99) congestionInfo = { text: '주의 필요', tagClass: 'tag-warning', color: '#f59e0b' };
     else congestionInfo = { text: '최대 수용 초과', tagClass: 'tag-danger', color: '#ef4444' };
 
+    // ⭐ [수정됨] 불편 지수 등급 기준 변경 (0~100점 스케일)
     let complaintInfo = { text: '', class1: '', tag1: '' };
-    if (complaintScore < 20) complaintInfo = { text: '낮음', class1: 'tag-success', tag1: '안정' };
-    else if (complaintScore < 40) complaintInfo = { text: '중간', class1: 'tag-warning', tag1: '주의' };
-    else if (complaintScore < 60) complaintInfo = { text: '높음', class1: 'tag-warning', tag1: '경고' };
+    if (complaintScore <= 25) complaintInfo = { text: '낮음', class1: 'tag-success', tag1: '안정' };
+    else if (complaintScore <= 50) complaintInfo = { text: '중간', class1: 'tag-warning', tag1: '주의' };
+    else if (complaintScore <= 75) complaintInfo = { text: '높음', class1: 'tag-danger', tag1: '경고' };
     else complaintInfo = { text: '매우 높음', class1: 'tag-danger', tag1: '위험' };
 
     let budgetTag = { text: '', class: '' };
@@ -229,7 +252,10 @@ const TramSimulation = () => {
         const bCost = baseBusCostYear * (1 - targetBusCut / 100);
         const delta = tCost + bCost - baseBusCostYear;
         const budgetChangePercent = (delta / baseBusCostYear) * 100;
-        const compScore = (targetBusCut * 0.6) + (Math.max(0, (congP/100) - 0.9) * 100 * 0.4);
+        // ⭐ 대안 추천에서도 동일한 로직 적용
+        let rawCompScore = (targetBusCut * 1.0) + (congP * 0.5);
+        if(congP > 100) rawCompScore += 10;
+        const compScore = Math.min(rawCompScore, 100);
         
         const optimalResult = {
             input: { tramHeadway: targetHeadway, busCut: targetBusCut },
@@ -295,7 +321,11 @@ const TramSimulation = () => {
             <div className="label-line">🌤️ 기상 조건 설정</div>
             <div className="weather-buttons">
               {['sunny', 'rain', 'snow'].map(type => (
-                <button key={type} onClick={() => setWeather({ type, intensity: type === 'sunny' ? 0 : 50 })} className={`weather-btn ${weather.type === type ? 'active' : ''}`}>
+                <button 
+                    key={type} 
+                    onClick={() => handleWeatherChange(type)} // ⭐ 여기서 변경된 핸들러 호출
+                    className={`weather-btn ${weather.type === type ? 'active' : ''}`}
+                >
                   {type === 'sunny' ? <Sun size={20}/> : type === 'rain' ? <CloudRain size={20}/> : <Snowflake size={20}/>}
                   {type === 'sunny' ? '맑음' : type === 'rain' ? '비' : '눈'}
                 </button>
